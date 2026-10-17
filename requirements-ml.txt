@@ -1,0 +1,14 @@
+# Tier 2 — deep learning + language stacks. PyTorch drives JARVIS's neural
+# intent model, local Whisper STT, and transformer summarization.
+torch>=2.4
+torchaudio>=2.4
+transformers>=4.44
+safetensors
+spacy>=3.8
+nltk>=3.9
+# local offline speech recognition (optional but recommended)
+openai-whisper
+
+# NOTE: TensorFlow/Keras have no macOS arm64 wheels for Python 3.14.
+# JARVIS uses PyTorch when TensorFlow is absent. To use TensorFlow as well,
+# create the venv on Python 3.12/3.13 and add: tensorflow (see requirements-tf.txt)

@@ -1,0 +1,7 @@
+# Master requirements — install tiers selectively:
+#   pip install -r requirements.txt              (core + web + ml, skips 3.14-incompatible)
+#   ./setup.sh                                   recommended: tiered, tolerant installer
+-r requirements-core.txt
+-r requirements-web.txt
+-r requirements-ml.txt
+-r requirements-data.txt

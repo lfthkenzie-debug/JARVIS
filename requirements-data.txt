@@ -1,0 +1,10 @@
+# Tier 3 — distributed data, streaming, and time-series stacks.
+# All optional: JARVIS detects each at runtime and reports what is live.
+dask[dataframe]>=2024.8
+distributed>=2024.8
+ray>=2.9
+kafka-python>=2.0
+pyspark>=3.5
+sktime>=0.30
+prophet>=1.1
+kats>=0.2

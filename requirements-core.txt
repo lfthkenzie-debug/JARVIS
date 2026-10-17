@@ -1,0 +1,11 @@
+# Tier 1 — always install. Voice I/O, numerics, charts, statistics, files.
+numpy>=2.0
+scipy>=1.13
+pandas>=2.2
+matplotlib>=3.9
+scikit-learn>=1.5
+joblib>=1.4
+SpeechRecognition>=3.14
+sounddevice>=0.5
+send2trash>=1.8
+openpyxl>=3.1
