@@ -113,7 +113,7 @@ def find_files(utterance: str) -> str:
 
 
 # ------------------------------------------------------------------ open
-@command("files.open", "Open a file or folder in Finder/default app.",
+@command("files.open", "Open a file or folder in the default app / file manager.",
          patterns=[r"\bopen (?:the )?(?:file|folder|downloads|documents|directory)\b"],
          examples=["open downloads folder", "open the last pdf", "open the file invoice.pdf",
                    "show me my desktop folder"],
@@ -222,7 +222,7 @@ def organize(utterance: str) -> str:
 
 
 # ------------------------------------------------------------------ trash safely
-@command("files.trash", "Move a matched file to the macOS Trash.",
+@command("files.trash", "Move a matched file to the Trash / Recycle Bin.",
          patterns=[r"\btrash|delete (?:this |that |the )?file|remove the file\b"],
          examples=["trash the file report old pdf", "delete that download", "remove invoice draft pdf"])
 def trash(utterance: str) -> str:

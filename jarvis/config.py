@@ -98,11 +98,11 @@ HEADLESS = os.getenv("JARVIS_HEADLESS", "0") == "1"        # tests: never launch
 
 
 def reveal(target) -> None:
-    """Open a file/URL with the macOS default handler; suppressed when headless."""
+    """Open a file/URL with the OS default handler; suppressed when headless."""
     if HEADLESS:
         return
-    import subprocess
-    subprocess.run(["open", str(target)], check=False)
+    from jarvis.core.ostools import open_target
+    open_target(target)
 
 
 def log(msg: str) -> None:

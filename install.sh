@@ -12,8 +12,12 @@ echo "╔═══════════════════════�
 echo "║   J.A.R.V.I.S — installer               ║"
 echo "╚══════════════════════════════════════════╝"
 
-# ── guardrails ──────────────────────────────────────────────────────────────
-[[ "$(uname -s)" == "Darwin" ]] || { echo "✗ JARVIS controls macOS natively — this installer needs a Mac."; exit 1; }
+# ---------------------------------------------------------------- guardrails
+case "$(uname -s)" in
+  Darwin) echo "▸ macOS detected — full feature set." ;;
+  Linux)  echo "▸ Linux detected — system voice needs espeak-ng or spd-say." ;;
+  *) echo "✗ This shell installer covers macOS and Linux. Windows: run install.bat instead."; exit 1 ;;
+esac
 
 if ! command -v python3 >/dev/null 2>&1; then
   echo "✗ Python 3 not found. Install the Command Line Tools first:"

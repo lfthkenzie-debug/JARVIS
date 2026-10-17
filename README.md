@@ -1,17 +1,29 @@
-# J.A.R.V.I.S — your Mac's holographic assistant
+# J.A.R.V.I.S — your computer's holographic assistant
 
-A local-first voice & control assistant for macOS with a sci-fi blue web interface.
-39 skills: system control, files, memory, weather, data analysis, ML, and a
-free-talking chat brain. **Nothing ever leaves your machine** — no cloud, no
-telemetry. Every file JARVIS touches is *your* file, on *your* laptop.
+A local-first voice & control assistant for **macOS, Windows and Linux** with a
+sci-fi blue web interface. 39 skills: system control, files, memory, weather,
+data analysis, ML, and a free-talking chat brain. **Nothing ever leaves your
+machine** — no cloud, no telemetry. Every file JARVIS touches is *your* file,
+on *your* computer.
 
 ## Requirements
 
-- macOS (JARVIS drives AppleScript, `say`, `pmset`, Homebrew)
-- Python 3.9+ (`xcode-select --install` gets you python3 on a bare Mac)
-- A microphone — optional, everything works from the keyboard too
+| | macOS 12+ | Windows 10/11 | Linux (deb/rpm) |
+|---|---|---|---|
+| Voice control & hologram UI | ✓ | ✓ | ✓ |
+| Open/quit apps, files, trash | ✓ | ✓ | ✓ |
+| Volume / mute | ✓ | needs NirCmd | pactl/amixer |
+| Screenshot, lock, sleep, stay-awake | ✓ | ✓ | ✓ (systemd) |
+| System vitals & device profile | ✓ | ✓ | ✓ |
+| Built-in TTS voice | `say` | PowerShell voice | espeak-ng / spd-say |
+| Fish Audio "JARVIS" voice | ✓ | ✓ | ✓ (optional key) |
+
+Python 3.9+ on any of them (`xcode-select --install` on a bare Mac,
+python.org on Windows — tick *Add to PATH*, `apt install python3` on Linux).
 
 ## Install
+
+macOS / Linux:
 
 ```bash
 git clone https://github.com/lfthkenzie-debug/JARVIS.git && cd JARVIS && ./install.sh
@@ -23,27 +35,30 @@ Or let the one-liner do it (after the repo is public):
 curl -fsSL https://raw.githubusercontent.com/lfthkenzie-debug/JARVIS/main/install.sh | JARVIS_REPO=https://github.com/lfthkenzie-debug/JARVIS.git bash
 ```
 
+Windows: clone (or download ZIP), then double-click **`install.bat`**.
+
 `install.sh` creates a private virtualenv, installs dependency tiers,
 prefetches language models, and trains JARVIS's intent router. Packages that
 don't exist for your Python version are skipped — JARVIS degrades gracefully.
 
 ## Run
 
-| Command | What you get |
-|---|---|
-| `./run.sh --ui` | Holographic control panel in your browser (http://127.0.0.1:8777) |
-| `./run.sh` | Full voice mode — say *"jarvis"* |
-| `./run.sh --text` | Typed conversation, spoken replies |
-| `./run.sh --selftest` | Verify all skill routing (39 skills) |
-| `./run.sh --oneshot "open safari"` | One command, then exit |
+| Command (macOS/Linux) | Command (Windows) | What you get |
+|---|---|---|
+| `./run.sh --ui` | `run.bat --ui` | Holographic control panel (http://127.0.0.1:8777) |
+| `./run.sh` | `run.bat` | Full voice mode — say *"jarvis"* |
+| `./run.sh --text` | `run.bat --text` | Typed conversation, spoken replies |
+| `./run.sh --selftest` | `run.bat --selftest` | Verify all skill routing (39 skills) |
+| `./run.sh --oneshot "open safari"` | `run.bat --oneshot "open notepad"` | One command, then exit |
 
-Grant **Microphone** permission when macOS asks (Privacy & Security →
-Microphone) — the app only appears in that list after its first mic attempt.
+Grant **microphone** permission when your OS asks — the app only appears in
+the privacy list after its first mic attempt.
 
 ## Optional power-ups
 
-- **Chat brain** — [Ollama](https://ollama.com): `brew install ollama &&
-  brew services start ollama && ollama pull llama3.2`. Without it, JARVIS
+- **Chat brain** — [Ollama](https://ollama.com): `brew install ollama` (macOS),
+  `winget install Ollama.Ollama` (Windows) or the install script at ollama.com
+  (Linux), then `ollama pull llama3.2`. Without it, JARVIS
   still routes and executes every command, just answers open chit-chat dryly.
   Prefer the cloud: `export JARVIS_OPENAI_KEY=sk-…`
 - **The real JARVIS voice** — a British baritone via Fish Audio: put your key

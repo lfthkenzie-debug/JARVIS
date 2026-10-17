@@ -47,62 +47,28 @@ def _sh(cmd: list[str]) -> str:
 
 # ------------------------------------------------------------------ system vitals
 def system_stats() -> dict:
+    """Cross-platform vitals via the ostools adapter — same JSON shape as ever."""
+    from jarvis.core import ostools as ot
     cores = os.cpu_count() or 1
-    load1, load5, load15 = os.getloadavg()
-
-    mem_total = 0
-    out = _sh(["sysctl", "-n", "hw.memsize"])
-    m = re.search(r"\d+", out)
-    if m:
-        mem_total = int(m.group())
-    mem_used_pct = 0.0
-    vs = _sh(["vm_stat"])
-    pg = re.search(r"page size of (\d+)", vs)
-    ps = int(pg.group(1)) if pg else 16384
-    def pages(label: str) -> int:
-        mm = re.search(rf"{label}:\s+(\d+)", vs)
-        return int(mm.group(1)) if mm else 0
-    if mem_total:
-        used = (pages("Pages active") + pages("Pages wired down")
-                + pages("Pages occupied by compressor")) * ps
-        mem_used_pct = max(0.0, min(100.0, used / mem_total * 100))
-
-    disk = {}
-    df = _sh(["df", "-h", "/"]).splitlines()
-    if len(df) > 1:
-        p = df[1].split()
-        disk = {"total": p[1], "used": p[2], "free": p[3], "pct": p[4]}
-
-    battery = {"pct": None, "state": "n/a"}
-    batt = _sh(["pmset", "-g", "batt"])
-    bm = re.search(r"(\d+)%", batt)
-    if bm:
-        low = batt.lower()
-        battery = {"pct": int(bm.group(1)),
-                   "state": ("charging" if "charging" in low
-                             else "charged" if "charged" in low else "discharging")}
-
-    uptime_s = 0
-    bt = re.search(r"sec = (\d+)", _sh(["sysctl", "-n", "kern.boottime"]))
-    if bt:
-        uptime_s = max(0, int(time.time()) - int(bt.group(1)))
-    d, rem = divmod(uptime_s, 86400)
-    h, rem2 = divmod(rem, 3600)
-    uptime_str = f"{d}d {h}h {rem2 // 60}m"
-
-    ip = _sh(["ipconfig", "getifaddr", "en0"]).strip()
+    cpu_pct, load = ot.cpu_pct()
+    m = ot.mem()
+    d = ot.disk()
+    b = ot.battery()
+    uptime_s = ot.uptime_secs()
+    dd, rem = divmod(uptime_s, 86400)
+    hh, rem2 = divmod(rem, 3600)
     return {
-        "host": socket.gethostname(),
-        "ip": ip or "—",
+        "host": ot.hostname(),
+        "ip": ot.local_ip() or "—",
+        "os": ot.SYSTEM,
         "cores": cores,
-        "cpu": {"pct": round(min(100.0, load1 / cores * 100), 1),
-                "load": [round(load1, 2), round(load5, 2), round(load15, 2)]},
-        "mem": {"pct": round(mem_used_pct, 1),
-                "total_gb": round(mem_total / 1024**3, 1)},
-        "disk": disk,
-        "battery": battery,
+        "cpu": {"pct": cpu_pct, "load": load},
+        "mem": {"pct": m.get("pct", 0), "total_gb": m.get("total_gb", 0)},
+        "disk": {"total": d.get("total", "—"), "used": d.get("used", "—"),
+                 "free": d.get("free", "—"), "pct": d.get("pct", "0%")},
+        "battery": b,
         "uptime_s": uptime_s,
-        "uptime": uptime_str,
+        "uptime": f"{dd}d {hh}h {rem2 // 60}m",
         "time": datetime.now().isoformat(timespec="seconds"),
     }
 

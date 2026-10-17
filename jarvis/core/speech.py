@@ -18,6 +18,7 @@ from pathlib import Path
 
 from jarvis.config import (FISH_API_KEY, FISH_MODEL, FISH_VOICE_ID, TTS_RATE,
                            TTS_VOICE, log)
+from jarvis.core import ostools as ot
 from jarvis.core.net import post_bytes
 
 
@@ -35,12 +36,12 @@ class Speaker:
     FISH_URL = "https://api.fish.audio/v1/tts"
 
     def __init__(self, enabled: bool = True):
-        self.fish = bool(FISH_API_KEY) and shutil.which("afplay") is not None
-        self.enabled = enabled and (self.fish or shutil.which("say") is not None)
+        self.fish = bool(FISH_API_KEY) and ot.playback_available()
+        self.enabled = enabled and (self.fish or ot.native_tts_available())
         if self.fish:
             log(f"TTS voice: Fish Audio — model {FISH_MODEL}.")
         elif not self.enabled:
-            log("TTS disabled (no `say` binary) — console output only.")
+            log("TTS disabled (no audio playback or system voice) — console output only.")
         self._proc: subprocess.Popen | None = None
         self._audio_dir = Path(tempfile.mkdtemp(prefix="jarvis_tts_"))
         self._seq = 0
@@ -56,12 +57,13 @@ class Speaker:
             if self._fish_say(text, block):
                 return
             self.fish = False      # bad key / offline — use system voice all session
-            log("Fish Audio unavailable — switched to macOS voice.")
-        cmd = ["say", "-r", str(TTS_RATE), "-v", TTS_VOICE, text]
+            log(f"Fish Audio unavailable — switched to {ot.SYSTEM} voice.")
+        proc = ot.speak_native(text, TTS_RATE, TTS_VOICE)
+        if proc is None:
+            return
+        self._proc = proc
         if block:
-            subprocess.run(cmd, check=False)
-        else:
-            self._proc = subprocess.Popen(cmd)
+            proc.wait()
 
     def _fish_payload(self, text: str) -> dict:
         return {
@@ -102,17 +104,27 @@ class Speaker:
         for old in self._audio_dir.glob("reply_*.mp3"):   # keep only current clip
             if old != path:
                 old.unlink(missing_ok=True)
-        self._proc = subprocess.Popen(["afplay", str(path)],
-                                      stdout=subprocess.DEVNULL,
-                                      stderr=subprocess.DEVNULL)
+        self._proc = ot.play_media(str(path))
+        if self._proc is None:
+            return False
         if block:
             self._proc.wait()
         return True
 
     def stop(self) -> None:
-        for tool in ("say", "afplay"):
-            subprocess.run(["killall", tool], check=False,
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if self._proc and self._proc.poll() is None:
+            try:
+                self._proc.terminate()
+            except OSError:
+                pass
+        if ot.IS_MAC:
+            for tool in ("say", "afplay"):
+                subprocess.run(["killall", tool], check=False,
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        elif ot.IS_LINUX:
+            for tool in ("espeak-ng", "espeak", "spd-say"):
+                subprocess.run(["pkill", "-f", tool], check=False,
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def _pre_speak_cleanup(text: str) -> str:
@@ -166,7 +178,7 @@ class Listener:
             except sr.WaitTimeoutError:
                 return None
             except OSError as exc:
-                log(f"Microphone error (grant Mic permission in System Settings): {exc}")
+                log(f"Microphone error (grant the app microphone access): {exc}")
                 return None
         return self._record_sounddevice(phrase_limit)
 
