@@ -14,13 +14,13 @@ telemetry. Every file JARVIS touches is *your* file, on *your* laptop.
 ## Install
 
 ```bash
-git clone https://github.com/<your-org>/JARVIS.git && cd JARVIS && ./install.sh
+git clone https://github.com/lfthkenzie-debug/JARVIS.git && cd JARVIS && ./install.sh
 ```
 
 Or let the one-liner do it (after the repo is public):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/<your-org>/JARVIS/main/install.sh | JARVIS_REPO=https://github.com/<your-org>/JARVIS.git bash
+curl -fsSL https://raw.githubusercontent.com/lfthkenzie-debug/JARVIS/main/install.sh | JARVIS_REPO=https://github.com/lfthkenzie-debug/JARVIS.git bash
 ```
 
 `install.sh` creates a private virtualenv, installs dependency tiers,

@@ -1,6 +1,6 @@
 #!/bin/bash
 # JARVIS — one-line installer for macOS.
-#   curl -fsSL https://raw.githubusercontent.com/<you>/JARVIS/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/lfthkenzie-debug/JARVIS/main/install.sh | bash
 # or simply:  git clone <repo> && cd <repo-dir> && ./install.sh
 set -uo pipefail
 
@@ -40,7 +40,7 @@ elif [[ -n "$REPO" ]]; then
   cd "$TARGET_DIR"
 else
   echo "✗ No repo URL. Either run this script from inside a JARVIS clone,"
-  echo "  or set it:  JARVIS_REPO=https://github.com/<you>/JARVIS.git bash install.sh"
+  echo "  or set it:  JARVIS_REPO=https://github.com/lfthkenzie-debug/JARVIS.git bash install.sh"
   exit 1
 fi
 
