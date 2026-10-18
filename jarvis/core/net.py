@@ -47,3 +47,29 @@ def post_bytes(url: str, payload: dict, timeout: int = 60,
                                           **(headers or {})})
     with urllib.request.urlopen(req, timeout=timeout, context=_context()) as r:
         return r.read()
+
+
+def get_bytes(url: str, timeout: int = 60, headers: dict | None = None) -> bytes:
+    """Download raw bytes from a URL (e.g. a generated image hosted by an API)."""
+    req = urllib.request.Request(url, headers=headers or UA)
+    with urllib.request.urlopen(req, timeout=timeout, context=_context()) as r:
+        return r.read()
+
+
+def post_multipart(url: str, fields: dict, timeout: int = 120,
+                   headers: dict | None = None) -> bytes:
+    """POST multipart/form-data with text-only fields; return raw response bytes
+    (Stability's image endpoints take a form and answer with the image itself)."""
+    boundary = "----JARVISformdata"
+    lines = []
+    for k, v in fields.items():
+        lines += [f"--{boundary}", f'Content-Disposition: form-data; name="{k}"',
+                  "", str(v)]
+    lines += [f"--{boundary}--", ""]
+    body = "\r\n".join(lines).encode()
+    req = urllib.request.Request(
+        url, data=body,
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary}",
+                 **(headers or {})})
+    with urllib.request.urlopen(req, timeout=timeout, context=_context()) as r:
+        return r.read()

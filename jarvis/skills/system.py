@@ -58,9 +58,17 @@ def volume(utterance: str) -> str:
 
 
 # ------------------------------------------------------------------ apps
-_APPS = ("safari|chrome|firefox|arc|spotify|music|terminal|iterm|vscode|"
-         "visual studio code|xcode|finder|notes|mail|messages|calendar|"
-         "preview|slack|discord|zoom|obs|intellij|pycharm|docker|activity monitor")
+_APPS = ("safari|chrome|firefox|brave|opera|edge|arc|spotify|music|podcasts|tv|movies|"
+         "terminal|iterm|vscode|visual studio code|cursor|sublime|xcode|finder|"
+         "notes|notion|mail|messages|whatsapp|telegram|signal|line|messenger|wechat|"
+         "instagram|tiktok|youtube|netflix|calendar|maps|photos|reminders|clock|"
+         "preview|slack|discord|telegram|zoom|teams|webex|obs|figma|sketch|"
+         "intellij|pycharm|android studio|docker|postman|tableplus|dbeaver|navicat|"
+         "bitwarden|1password|obsidian|keepassxc|blender|gimp|imovie|garageband|keynote|"
+         "pages|numbers|excel|word|powerpoint|outlook|onenote|vlc|iina|mpv|steam|"
+         "app store|system settings|system preferences|activity monitor|task manager|"
+         "mission control|launchpad|shortcuts|freeform|stocks|news|weather|home|"
+         "ebook converters|calibre|transmission|qbittorrent|filezilla|wireshark")
 
 
 @command("sys.open_app", "Open or quit an application by name.",
@@ -70,14 +78,29 @@ _APPS = ("safari|chrome|firefox|arc|spotify|music|terminal|iterm|vscode|"
                    "open terminal", "launch xcode", "quit slack"],
          priority=10)
 def open_app(utterance: str) -> str:
-    m = re.search(r"(?:open|launch|start)\s+(?:the\s+|app\s+)?([\w ]+?)(?:\s+(?:app|application))?$",
-                  utterance)
-    if not m:
-        m = re.search(r"(?:quit|close|kill)\s+(?:the\s+|app\s+)?([\w ]+)", utterance)
+    text = utterance.lower()
+    # Prefer a known app name anywhere in the phrase — polite trailing words
+    # ("…for me, Jarvis?") no longer defeat extraction the way an end-anchored
+    # regex did. Falls back to the words right after the verb for unknown apps.
+    known = re.search(rf"\b({_APPS})\b", text)
+    name = known.group(1) if known else None
+    if not name:
+        m = re.search(r"(?:open|launch|start|quit|close|kill)\s+"
+                      r"(?:the\s+|an?\s+|app\s+)?(.*)", text)
         if m:
-            return ot.quit_app(m.group(1).strip())
+            fill = {"for", "me", "please", "now", "app", "application", "and",
+                    "to", "up", "window", "windows", "again", "instantly", "jarvis"}
+            words = []
+            for w in re.findall(r"[a-z0-9][\w.-]*", m.group(1)):
+                if w in fill:
+                    break
+                words.append(w)
+            name = " ".join(words) or None
+    if not name:
         return "Which application, sir?"
-    return ot.open_app(m.group(1).strip())
+    if re.search(r"\b(?:quit|close|kill)\b", text) and not re.search(r"\b(?:open|launch|start)\b", text):
+        return ot.quit_app(name)
+    return ot.open_app(name)
 
 
 # ------------------------------------------------------------------ screenshots

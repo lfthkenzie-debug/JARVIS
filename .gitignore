@@ -3,3 +3,7 @@ __pycache__/
 *.pyc
 jarvis_data/
 .DS_Store
+
+# installer-mirror artifacts (share.sh)
+share/
+.share/

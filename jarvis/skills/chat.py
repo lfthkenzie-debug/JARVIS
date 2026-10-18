@@ -75,20 +75,21 @@ class LLM:
                     "Install Ollama or set JARVIS_OPENAI_KEY.")
 
     def _history(self) -> list[tuple[str, str]]:
-        """Last exchanges so JARVIS remembers the flow of conversation."""
+        """Last conversational exchanges only, so JARVIS remembers the flow of
+        *chat* without command turns (open/quit/analyse) bleeding into his replies."""
         try:
-            return [(h, r) for _, h, r in _mem.recent(6)]
+            return [(h, r) for _, h, r in _mem.recent(8, skill_prefix="jarvis.chat")]
         except Exception:
             return []
 
-    def ask(self, text: str) -> str | None:
+    def ask(self, text: str, history: bool = True) -> str | None:
         if self.mode == "none":
             return None
-        history = self._history()
+        hist = self._history() if history else []
         try:
             if self.mode == "ollama":
                 transcript = "\n\n".join(
-                    [f"User: {h}\nJARVIS: {r}" for h, r in history]
+                    [f"User: {h}\nJARVIS: {r}" for h, r in hist]
                     + [f"User: {text}\nJARVIS:"])
                 resp = self.net.post_json(
                     "http://localhost:11434/api/generate",
@@ -99,7 +100,7 @@ class LLM:
                     timeout=180)
                 return resp.get("response", "").strip()
             messages = [{"role": "system", "content": PERSONA}]
-            for h, r in history:
+            for h, r in hist:
                 messages.append({"role": "user", "content": h})
                 messages.append({"role": "assistant", "content": r})
             messages.append({"role": "user", "content": text})
@@ -119,6 +120,29 @@ class LLM:
 _llm = LLM()
 
 
+# A refusal-shaped reply. Local instruct models (llama et al.) sometimes emit
+# these for perfectly harmless inputs when the conversation context contains a
+# stray "risky" token — and then the refusal gets logged and fed back, so it
+# cascades forever. We never want a false refusal to become spoken canon.
+_REFUSAL_RE = re.compile(
+    r"\bi (?:can'?t|cannot|wo?n'?t|am unable)\b|\bi'?m unable\b|unable to\b|"
+    r"\bas an ai\b|explicit content|can'?t (?:fulfill|provide|help|assist)|"
+    r"not (?:able|comfortable) to\b", re.I)
+
+
+def _history_clean() -> list[tuple[str, str]]:
+    """Chat-only turns, minus any that contain a prior refusal — so one bad
+    reply can't seed the context and cascade into a wall of refusals."""
+    try:
+        return [(h, r) for _, h, r in _mem.recent(8, skill_prefix="jarvis.chat")
+                if not _REFUSAL_RE.search(r or "")]
+    except Exception:
+        return []
+
+
+LLM._history = lambda self: _history_clean()   # one source of truth, no cascade
+
+
 @command("jarvis.chat", "Free-form conversation — questions, statements, opinions, chitchat. "
                         "Routed to the local LLM with full persona. "
                         "This is the fallback when nothing else matches.",
@@ -132,6 +156,13 @@ _llm = LLM()
                    "whats your favorite movie", "do you enjoy helping people"])
 def chat(utterance: str) -> str:
     answer = _llm.ask(utterance)
+    # If the model balks, it may be context poisoning rather than a genuine
+    # objection. Retry with a clean slate: harmless inputs answer normally,
+    # genuinely problematic ones still refuse — and then we keep that refusal.
+    if answer and _REFUSAL_RE.search(answer):
+        fresh = _llm.ask(utterance, history=False)
+        if fresh and not _REFUSAL_RE.search(fresh):
+            return fresh[:1500]
     if answer:
         return answer[:1500]
     fallbacks = [

@@ -6,9 +6,12 @@ Endpoints (all JSON, localhost only):
   GET  /api/system            live Mac vitals (cpu, memory, disk, battery, uptime)
   GET  /api/history?n=        recent interactions from memory
   GET  /api/skills            skill registry listing
+  GET  /api/weather           live conditions for Makassar & Gowa, South Sulawesi
+  GET  /api/activity          watcher status + today's per-app timeline (local only)
   GET  /api/files?root=&path= folder listing / ?q= filename search
   GET  /api/tasks             task list
   POST /api/command           {text, voice} -> {reply, skill, audio?}
+  POST /api/activity          {action: start|stop} -> toggle the local watcher
   POST /api/files/open        {root, path}  -> reveal in Finder
   POST /api/tasks             {action: add|toggle|delete|clear_done, ...}
 """
@@ -25,9 +28,10 @@ import time
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlparse, quote
 
 from jarvis.config import DATA_DIR, FILE_ROOTS, HOME, log, reveal
+from jarvis.core import activity, net, vision
 from jarvis.core.registry import ordered_commands
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
@@ -36,6 +40,67 @@ UI_PORT = int(os.getenv("JARVIS_UI_PORT", "8777"))
 
 # UI may browse the whole volume; voice skills stay scoped to FILE_ROOTS
 UI_ROOTS = {**FILE_ROOTS, "disk": Path("/")}
+
+# --------------------------------------------------------------- weather panel
+# The home region this build cares about: Makassar & Gowa, South Sulawesi.
+WEATHER_SPOTS = [("Makassar", "Makassar,South Sulawesi,Indonesia"),
+                 ("Gowa", "Gowa,South Sulawesi,Indonesia")]
+WEATHER_TTL = 600                        # re-fetch at most every 10 minutes
+_weather_cache: dict[str, tuple[float, dict]] = {}
+_weather_lock = threading.Lock()
+
+
+def _fetch_wttr(query: str, label: str) -> dict:
+    url = f"https://wttr.in/{quote(query)}?format=j1"
+    data = json.loads(net.get(url, timeout=9))
+    cur = data["current_condition"][0]
+    area = (data.get("nearest_area") or [{}])[0]
+    today = (data.get("weather") or [{}])[0]
+    astro = (today.get("astronomy") or [{}])[0]
+    first = lambda k, d=None: (area.get(k) or [{}])[0].get("value", d)
+    return {
+        "city": label,
+        "station": first("areaName", label),
+        "region": first("region", "South Sulawesi"),
+        "country": first("country", "Indonesia"),
+        "desc": (cur.get("weatherDesc") or [{}])[0].get("value", "—"),
+        "code": cur.get("weatherCode", ""),
+        "temp": cur.get("temp_C", "?"),
+        "feels": cur.get("FeelsLikeC", "?"),
+        "humidity": cur.get("humidity", "?"),
+        "wind": cur.get("windspeedKmph", "?"),
+        "wind_dir": cur.get("winddir16Point", ""),
+        "pressure": cur.get("pressure", "?"),
+        "uv": today.get("uvIndex", "?"),
+        "min": today.get("mintempC", "?"),
+        "max": today.get("maxtempC", "?"),
+        "sunrise": astro.get("sunrise", ""),
+        "sunset": astro.get("sunset", ""),
+        "obs": cur.get("localObsDateTime", ""),
+    }
+
+
+def weather_panel() -> dict:
+    """Live conditions for the two South Sulawesi home spots, softly cached."""
+    now = time.time()
+    out = []
+    for label, query in WEATHER_SPOTS:
+        with _weather_lock:
+            hit = _weather_cache.get(query)
+            if hit and now - hit[0] < WEATHER_TTL:
+                out.append(hit[1]); continue
+        try:
+            rec = _fetch_wttr(query, label)
+            rec["ok"] = True
+            with _weather_lock:
+                _weather_cache[query] = (now, rec)
+        except Exception as exc:
+            log(f"weather {label}: {exc}")
+            rec = {"city": label, "region": "South Sulawesi", "country": "Indonesia",
+                   "desc": "unavailable", "code": "", "temp": "?", "feels": "?",
+                   "humidity": "?", "wind": "?", "ok": False}   # not cached — retry next poll
+        out.append(rec)
+    return {"places": out, "tz": "WITA (UTC+8)"}
 
 
 def _sh(cmd: list[str]) -> str:
@@ -236,6 +301,12 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(self.api.history(int(q.get("n", "20"))))
         if u.path == "/api/skills":
             return self._json(self.api.skills())
+        if u.path == "/api/weather":
+            return self._json(weather_panel())
+        if u.path == "/api/activity":
+            p = activity.panel()
+            p["vision"] = vision.backend()
+            return self._json(p)
         if u.path == "/api/tasks":
             return self._json(self.api.tasks())
         if u.path == "/api/files":
@@ -268,6 +339,12 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(self.api.tasks(
                 action=str(body.get("action", "")), id=body.get("id"),
                 title=str(body.get("title", ""))))
+        if u.path == "/api/activity":
+            act = str(body.get("action", ""))
+            reply = (activity.start() if act == "start"
+                     else activity.stop() if act == "stop"
+                     else activity.status_text())
+            return self._json({"reply": reply, "panel": activity.panel()})
         if u.path == "/api/files/open":
             base = _safe_root(str(body.get("root", "home")))
             rel = str(body.get("path", ""))

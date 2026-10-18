@@ -353,6 +353,56 @@ function initParticles() {
   })();
 }
 
+/* energised arc-reactor core: rotating plasma + orbiting energy sparks */
+function initCoreFX() {
+  const cv = $("core-fx"); if (!cv) return;
+  const cx = cv.getContext("2d");
+  let W, H, cxp, cyp, R;
+  const size = () => {
+    const r = cv.getBoundingClientRect(), dpr = devicePixelRatio || 1;
+    W = cv.width = Math.max(60, r.width) * dpr; H = cv.height = Math.max(60, r.height) * dpr;
+    cxp = W / 2; cyp = H / 2; R = Math.min(W, H) / 2;
+  };
+  size(); addEventListener("resize", size);
+  const sparks = Array.from({ length: 54 }, () => ({
+    a: Math.random() * 6.28, r: 0.34 + Math.random() * 0.6,
+    s: (0.008 + Math.random() * 0.05) * (Math.random() < 0.5 ? -1 : 1),
+    sz: 0.5 + Math.random() * 1.9, w: Math.random() * 6.28 }));
+  let t = 0;
+  (function draw() {
+    t += 1;
+    const boost = STATE.current === "thinking" ? 2.0 : STATE.current === "speaking" ? 1.55
+                : STATE.current === "listening" ? 1.3 : 1.0;
+    cx.clearRect(0, 0, W, H);
+    const dpr = devicePixelRatio || 1;
+    // plasma arcs
+    cx.save(); cx.translate(cxp, cyp); cx.lineCap = "round";
+    for (let i = 0; i < 3; i++) {
+      const rad = R * (0.58 + i * 0.13);
+      cx.strokeStyle = `rgba(77,232,255,${(0.10 + 0.09 * i) * boost})`;
+      cx.lineWidth = (1.1 + i * 0.6) * dpr;
+      const start = t * 0.02 * (i % 2 ? -1 : 1) + i * 2;
+      cx.beginPath(); cx.arc(0, 0, rad, start, start + 1.5 + 0.4 * boost); cx.stroke();
+    }
+    // corona ring
+    cx.strokeStyle = `rgba(138,244,255,${0.05 * boost})`; cx.lineWidth = R * 0.14;
+    cx.beginPath(); cx.arc(0, 0, R * 0.5, 0, 6.28); cx.stroke();
+    cx.restore();
+    // orbiting energy sparks
+    cx.shadowColor = "rgba(77,232,255,.9)";
+    sparks.forEach((k) => {
+      k.a += k.s * boost; k.w += 0.05;
+      const rr = R * k.r * (1 + 0.04 * Math.sin(t * 0.05 + k.a));
+      const x = cxp + Math.cos(k.a) * rr, y = cyp + Math.sin(k.a) * rr;
+      const al = (0.35 + 0.55 * Math.abs(Math.sin(k.w))) * Math.min(1.4, boost);
+      cx.fillStyle = `rgba(150,240,255,${al})`;
+      cx.shadowBlur = 6; cx.beginPath(); cx.arc(x, y, k.sz * dpr, 0, 6.28); cx.fill();
+    });
+    cx.shadowBlur = 0;
+    requestAnimationFrame(draw);
+  })();
+}
+
 function initWave() {
   const cv = $("wave"), cx = cv.getContext("2d");
   let W, H;
@@ -382,13 +432,155 @@ function initWave() {
   })();
 }
 
+/* ---------------------------------------------------------------- weather uplink */
+function wxIcon(code, desc) {
+  const d = (desc || "").toLowerCase(), C = {
+    "113": "☀️", "116": "⛅", "119": "☁️", "122": "☁️", "143": "🌫️",
+    "176": "🌦️", "200": "⛈️", "266": "🌧️", "302": "🌧️", "308": "🌧️",
+    "353": "🌦️", "386": "⛈️", "389": "⛈️", "395": "❄️" };
+  if (C[code]) return C[code];
+  if (/thunder|storm/.test(d)) return "⛈️";
+  if (/snow|sleet|blizzard|hail|ice/.test(d)) return "❄️";
+  if (/rain|drizzle|shower/.test(d)) return "🌧️";
+  if (/fog|mist|haze|smoke/.test(d)) return "🌫️";
+  if (/cloud|overcast/.test(d)) return "☁️";
+  if (/sun|clear|fair/.test(d)) return "☀️";
+  return "🌡️";
+}
+
+function renderWeather(d) {
+  const grid = $("wx-grid"); if (!grid) return;
+  grid.innerHTML = "";
+  (d.places || []).forEach((p) => {
+    const card = document.createElement("div");
+    card.className = "wx-card" + (p.ok ? "" : " bad");
+    card.innerHTML = `<div class="wx-city"></div><div class="wx-sub"></div>` +
+      `<div class="wx-main"><span class="wx-icon"></span>` +
+      `<div><div class="wx-temp"></div><div class="wx-desc"></div></div></div>` +
+      `<div class="wx-stats"></div>`;
+    card.querySelector(".wx-city").textContent = p.city;
+    card.querySelector(".wx-sub").textContent = [p.region, p.country].filter(Boolean).join(", ");
+    card.querySelector(".wx-icon").textContent = p.ok ? wxIcon(p.code, p.desc) : "📡";
+    card.querySelector(".wx-temp").innerHTML = p.ok ? `${p.temp}<small>°C</small>` : "--";
+    card.querySelector(".wx-desc").textContent = p.ok ? p.desc : "signal lost";
+    const stats = card.querySelector(".wx-stats");
+    if (p.ok) for (const [k, v] of [["feels", p.feels + "°"], ["humid", p.humidity + "%"],
+        ["wind", `${p.wind} km/h ${p.wind_dir || ""}`], ["uv", p.uv],
+        ["lo/hi", `${p.min}°/${p.max}°`]]) {
+      const s = document.createElement("span");
+      s.innerHTML = `${k} <b></b>`; s.querySelector("b").textContent = v; stats.appendChild(s);
+    }
+    grid.appendChild(card);
+  });
+  if (d.tz) $("wx-tz").textContent = d.tz;
+  $("wx-updated").textContent = "updated " + new Date().toLocaleTimeString("en-GB",
+    { hour: "2-digit", minute: "2-digit" });
+}
+
+async function loadWeather() {
+  try { renderWeather(await API("/api/weather")); }
+  catch (e) { const g = $("wx-grid"); if (g) g.innerHTML =
+    `<div class="wx-load">atmospheric uplink offline — retrying…</div>`; }
+}
+setInterval(loadWeather, 5 * 60 * 1000);
+
+/* --------------------------------------------------- activity monitor (local) */
+let actRunning = false;
+const hhmm = (ts) => new Date(ts * 1000).toLocaleTimeString("en-GB",
+  { hour: "2-digit", minute: "2-digit" });
+
+async function loadActivity() {
+  try {
+    const a = await API("/api/activity");
+    actRunning = !!a.running;
+    const btn = $("watch-btn");
+    btn.textContent = actRunning ? "HOLD" : "WATCH";
+    btn.classList.toggle("on", actRunning);
+    $("act-dot").className = "act-dot" + (actRunning ? " live" : "");
+    $("act-app").textContent = actRunning ? (a.current.app || "…") : "off";
+    $("act-title").textContent = actRunning && !PRIVACY.on ? (a.current.title || "") : "";
+    const bars = $("act-bars"); bars.innerHTML = "";
+    if ((a.today || []).length) {
+      const max = Math.max(...a.today.map((t) => t.mins), 1);
+      a.today.slice(0, 5).forEach((t) => {
+        const row = document.createElement("div");
+        row.className = "act-bar";
+        row.innerHTML = `<span></span><i></i><b>${t.mins >= 60 ? (t.mins / 60).toFixed(1) + "h" : Math.round(t.mins) + "m"}</b>`;
+        row.querySelector("span").textContent = t.app;
+        row.querySelector("i").style.width = Math.max(4, 100 * t.mins / max) + "%";
+        bars.appendChild(row);
+      });
+    } else bars.innerHTML = `<div class="act-none">no scenes logged yet</div>`;
+    const feed = $("act-feed"); feed.innerHTML = "";
+    (a.feed || []).slice(0, 5).forEach((f) => {
+      const li = document.createElement("li");
+      li.innerHTML = `<em>${hhmm(f.ts)}</em><b></b><span></span>`;
+      li.querySelector("b").textContent = f.app;
+      li.querySelector("span").textContent = PRIVACY.on ? "" : (f.title || "");
+      feed.appendChild(li);
+    });
+    $("act-sum").textContent = actRunning
+      ? `since ${a.since} · ${Math.round(a.total_mins)}m accounted · eyes:${a.vision}`
+      : "say 'start monitoring', sir";
+    const last = (a.reactions || [])[0];
+    $("act-react").textContent = last ? "“" + last.text + "”" : "";
+  } catch (e) { /* server restarting */ }
+}
+$("watch-btn").addEventListener("click", async () => {
+  try {
+    const res = await POST("/api/activity", { action: actRunning ? "stop" : "start" });
+    addMsg("jarvis", res.reply, "activity");
+    loadActivity();
+  } catch (e) { addMsg("jarvis", "Monitor link failed: " + e.message, "system"); }
+});
+setInterval(loadActivity, 10000);
+
+/* ------------------------------------- hands-free AUTO (continuous, no wake word) */
+let hands = null, handsOn = false;
+function handsStop() {
+  handsOn = false;
+  if (hands) { try { hands.stop(); } catch (e) {} hands = null; }
+  $("hands-btn").classList.remove("on", "live");
+  if (STATE.current === "listening") setState("idle");
+}
+function handsStart() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { addMsg("jarvis", "Hands-free needs Chrome or Safari, sir.", "system"); return; }
+  if (handsOn) return;
+  handsOn = true; $("hands-btn").classList.add("on");
+  (function listen() {
+    if (!handsOn) return;
+    hands = new SR();
+    hands.lang = "en-GB"; hands.interimResults = false; hands.continuous = true;
+    hands.onstart = () => $("hands-btn").classList.add("live");
+    hands.onresult = (e) => {
+      let final = "";
+      for (let i = e.resultIndex; i < e.results.length; i++)
+        if (e.results[i].isFinal) final += e.results[i][0].transcript;
+      final = final.trim();
+      if (!final) return;
+      if (STATE.current === "thinking" || STATE.current === "speaking") return; // don't hear ourselves
+      send(final);
+    };
+    hands.onerror = (e) => {
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+        handsStop(); addMsg("jarvis", "Microphone permission denied, sir.", "system");
+      }
+    };
+    hands.onend = () => { $("hands-btn").classList.remove("live");
+      if (handsOn) setTimeout(listen, 400); };   // auto-restart keeps it truly continuous
+    try { hands.start(); } catch (e) {}
+  })();
+}
+$("hands-btn").addEventListener("click", () => handsOn ? handsStop() : handsStart());
+
 /* ---------------------------------------------------------------- boot */
 (async function boot() {
-  initParticles(); initWave();
+  initParticles(); initWave(); initCoreFX();
   setState("boot");
   $("privacy-btn").classList.toggle("on", PRIVACY.on);
   $("file-crumbs").textContent = PRIVACY.on ? "hidden — privacy mode on" : "select a folder above";
-  await Promise.all([loadSkills(), loadTasks(), pollSystem()]);
+  await Promise.all([loadSkills(), loadTasks(), pollSystem(), loadWeather(), loadActivity()]);
   const cleared = localStorage.getItem("jarvis_chat_cleared");
   const hist = await API("/api/history?n=20").catch(() => ({ items: [] }));
   hist.items.filter((h) => !cleared || h.ts >= cleared).slice(-4).forEach((h) => {

@@ -104,7 +104,7 @@ def weather(utterance: str) -> str:
 
 
 @command("sys.time", "Current time, date, and countdowns.",
-         patterns=[r"\btime\b|\bdate\b|what day|\bwhats\b.{0,10}today|today.{0,10}\bdate\b"],
+         patterns=[r"(?<!real )\btime\b(?!\s+(?:series|spent|distribution|per))|\bdate\b|what day|\bwhats\b.{0,10}today|today.{0,10}\bdate\b"],
          examples=["what time is it", "what is the date", "what day is it",
                    "how many days until christmas"])
 def time_cmd(utterance: str) -> str:

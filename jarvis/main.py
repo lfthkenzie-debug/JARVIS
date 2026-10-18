@@ -2,6 +2,7 @@
 
 Usage:
   python -m jarvis                 voice mode (say "jarvis" to wake)
+  python -m jarvis --voice         Auto-Instant hands-free — no wake word, instant answers
   python -m jarvis --text          keyboard mode, same brain
   python -m jarvis --ui            holographic browser interface (localhost server)
   python -m jarvis --oneshot "open safari"
@@ -81,6 +82,36 @@ def voice_loop(brain, memory, speaker, listener) -> None:
             return
 
 
+def handsfree_loop(brain, memory, speaker, listener) -> None:
+    """Auto-Instant voice: no wake word, no button — talk and JARVIS answers,
+    then listens again immediately. Runs until a farewell phrase or Ctrl-C."""
+    log("Auto-Instant voice mode — speak freely, no wake word. Ctrl-C to stop.")
+    speaker.say("Auto-Instant mode engaged. Just speak, sir.")
+    idle_windows = 0
+    try:
+        while True:
+            order = listener.listen(timeout=12, phrase_limit=16)
+            if order is None:
+                idle_windows += 1
+                if idle_windows == 5:
+                    log("Still listening, sir.")
+                    idle_windows = 0
+                continue
+            idle_windows = 0
+            order = order.strip()
+            if not order:
+                continue
+            log(f"Heard: {order}")
+            if any(p in order for p in EXIT_PHRASES):
+                speaker.say("Disengaging hands-free. Goodbye, sir.")
+                return
+            # blocking speech (speaker.say default): JARVIS finishes replying
+            # before listening again, so he can't hear his own voice and self-answer
+            handle(brain, memory, order, speaker.say)
+    except KeyboardInterrupt:
+        log("Auto-Instant voice mode stopped.")
+
+
 def text_mode(brain, memory, speaker) -> None:
     log("Text mode. Type an order; 'exit' to quit, 'help' for skills.")
     while True:
@@ -120,6 +151,25 @@ SELFTEST_PHRASES = [
     "scrape https://quotes.toscrape.com",
     "remember that my favourite editor is Neovim",
     "what did I ask earlier",
+    "start monitoring my activity",
+    "what have I been doing today",
+    "look at my screen",
+    "open youtube",
+    "what's trending on youtube",
+    "react to that video",
+    "react to my youtube in real time",
+    "explore https://example.com",
+    "read this page",
+    "what links are here",
+    "follow link 2",
+    "go back",
+    "browse the web with me",
+    "stop browsing with me",
+    "set a timer for 10 minutes",
+    "how much time is left on my timer",
+    "cancel the timer",
+    "generate an image of a red fox in falling snow",
+    "draw a mountain landscape at sunrise",
 ]
 
 
@@ -131,7 +181,13 @@ def selftest(brain, memory, execute: bool = False, untrusted: bool = True) -> in
     skipped unless --execute --allow-side-effects)."""
     from jarvis.core.registry import all_commands
     risky = ("files.organize", "files.trash", "sys.volume", "sys.power",
-             "sys.dnd", "sys.open_app", "sys.screenshot", "files.open")
+             "sys.dnd", "sys.open_app", "sys.screenshot", "files.open",
+             "screen.watch_on", "screen.watch_off", "screen.look",
+             "yt.open", "yt.play", "yt.pick", "yt.upload", "yt.auth",
+             "yt.watch_on", "yt.watch_off",
+             "browser.explore", "browser.current", "browser.follow", "browser.back",
+             "browser.watch_on", "browser.watch_off",
+             "timer.set", "image.generate")
     print(f"\n{'PHRASE':<52} {'ROUTED TO':<16} RESULT")
     print("-" * 108)
     failures = 0
@@ -167,6 +223,8 @@ def main(argv: list[str] | None = None) -> int:
                       help="holographic web interface in your browser")
     mode.add_argument("--selftest", action="store_true", help="routing self-test")
     mode.add_argument("--oneshot", metavar="ORDER", help="execute one command and exit")
+    mode.add_argument("--voice", action="store_true",
+                      help="hands-free Auto-Instant voice — no wake word, answers instantly")
     ap.add_argument("--quiet", action="store_true", help="no spoken output")
     ap.add_argument("--no-wake", action="store_true", help="voice mode without wake word")
     ap.add_argument("--execute", action="store_true",
@@ -179,6 +237,8 @@ def main(argv: list[str] | None = None) -> int:
 
     from jarvis.core.speech import Speaker
     speaker = Speaker(enabled=not args.quiet and not args.selftest)
+    from jarvis.core import activity
+    activity.set_speaker(speaker)      # lets the watcher react with voice, if on
 
     if args.selftest:
         return selftest(brain, memory, execute=args.execute,
@@ -208,19 +268,9 @@ def main(argv: list[str] | None = None) -> int:
         log("Voice input unavailable — falling back to text mode.")
         text_mode(brain, memory, speaker)
         return 0
-    if args.no_wake:
-        # continuous command loop, no wake word required
-        def loop():
-            while True:
-                order = listener.listen(timeout=12, phrase_limit=15)
-                if order is None:
-                    continue
-                log(f"Heard: {order}")
-                if any(p in order for p in EXIT_PHRASES):
-                    speaker.say("Goodbye, sir.")
-                    return
-                handle(brain, memory, order, lambda t: speaker.say(t, block=False))
-        loop()
+    if args.voice or args.no_wake:
+        # Auto-Instant hands-free loop — no wake word, answer, then listen again
+        handsfree_loop(brain, memory, speaker, listener)
         return 0
     voice_loop(brain, memory, speaker, listener)
     return 0

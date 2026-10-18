@@ -23,23 +23,37 @@ python.org on Windows — tick *Add to PATH*, `apt install python3` on Linux).
 
 ## Install
 
-macOS / Linux:
+🌐 **Project homepage:** https://lfthkenzie-debug.github.io/JARVIS/ — one button
+per OS, auto-detects your platform and copies the exact command.
+
+macOS / Linux — one line:
 
 ```bash
-git clone https://github.com/lfthkenzie-debug/JARVIS.git && cd JARVIS && ./install.sh
+curl -fsSL https://raw.githubusercontent.com/lfthkenzie-debug/JARVIS/main/install.sh | bash
 ```
 
-Or let the one-liner do it (after the repo is public):
+Windows — one line (PowerShell):
+
+```powershell
+powershell -c "irm https://raw.githubusercontent.com/lfthkenzie-debug/JARVIS/main/install.ps1 | iex"
+```
+
+Or clone and run the installer from inside the checkout:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/lfthkenzie-debug/JARVIS/main/install.sh | JARVIS_REPO=https://github.com/lfthkenzie-debug/JARVIS.git bash
+git clone https://github.com/lfthkenzie-debug/JARVIS.git && cd JARVIS && ./install.sh   # macOS/Linux
 ```
+Windows: double-click **`install.bat`** or run **`.\install.ps1`**.
 
-Windows: clone (or download ZIP), then double-click **`install.bat`**.
+`install.sh` / `install.ps1` create a private virtualenv, install dependency tiers,
+prefetch language models, and train JARVIS's intent router. Packages that don't exist
+for your Python version are skipped — JARVIS degrades gracefully.
 
-`install.sh` creates a private virtualenv, installs dependency tiers,
-prefetches language models, and trains JARVIS's intent router. Packages that
-don't exist for your Python version are skipped — JARVIS degrades gracefully.
+> **Why a download, not a hosted web app?** JARVIS runs real shell commands (volume,
+> files, screenshots) — that only works on *your* machine. A hosted page could control
+> only the server's computer, never the visitor's. So every person runs their own local
+> JARVIS and stays in charge of their own device. This repo is the public *distribution
+> point*, not the runtime.
 
 ## Run
 
@@ -53,6 +67,21 @@ don't exist for your Python version are skipped — JARVIS degrades gracefully.
 
 Grant **microphone** permission when your OS asks — the app only appears in
 the privacy list after its first mic attempt.
+
+### Agentic & always-on
+
+Tell JARVIS *"keep yourself awake"* and he holds a sleep assertion for the
+whole machine (`caffeinate` on macOS, `SetThreadExecutionState` on Windows,
+`systemd-inhibit` on Linux) — he won't doze off or quit until you say
+*"sleep"* or *"power down"*. Keep `run.sh --ui` / `run.bat --ui` running to
+leave the panel and brain resident.
+
+### Homepage (maintainer)
+
+`site/index.html` is the public landing page. Publish it with **GitHub
+Settings → Pages → Source: Deploy from a branch → `/site` (main)**. The raw
+installer one-liners resolve from the `main` branch, so push there to make
+them live for testers.
 
 ## Optional power-ups
 

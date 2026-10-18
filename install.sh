@@ -4,8 +4,8 @@
 # or simply:  git clone <repo> && cd <repo-dir> && ./install.sh
 set -uo pipefail
 
-REPO="${JARVIS_REPO:-}"                 # your public repo URL (or pass as $1)
-[[ -n "${1:-}" ]] && REPO="$1"
+# Default repo lets `curl | bash` self-clone with no arguments.
+REPO="${1:-${JARVIS_REPO:-https://github.com/lfthkenzie-debug/JARVIS.git}}"
 TARGET_DIR="${JARVIS_HOME:-$HOME/JARVIS}"
 
 echo "╔══════════════════════════════════════════╗"
@@ -35,9 +35,24 @@ fi
 
 # ── fetch the code ──────────────────────────────────────────────────────────
 HERE="$(cd "$(dirname "$0")" && pwd)"
+ZIP="${JARVIS_ZIP:-}"
 if [[ -f "$HERE/setup.sh" && -d "$HERE/jarvis" ]]; then
   cd "$HERE"                            # already inside a clone
   echo "▸ Using existing checkout at $HERE"
+elif [[ -n "$ZIP" ]]; then
+  # Laptop-mirror mode: grab a prebuilt bundle served over a shared URL, so
+  # testers install the CURRENT build without waiting for a git push.
+  echo "▸ Downloading installer bundle from $ZIP"
+  TMP="$(mktemp -t jarvis.XXXXXX.zip)"
+  curl -fsSL "$ZIP" -o "$TMP" || { echo "✗ bundle download failed"; exit 1; }
+  PARENT="$(dirname "$TARGET_DIR")"; mkdir -p "$PARENT"
+  unzip -q -o "$TMP" -d "$PARENT" || { echo "✗ could not unpack bundle"; exit 1; }
+  rm -f "$TMP"
+  # bundles are rooted at ./JARVIS; honour a custom JARVIS_HOME if set
+  if [[ "$(basename "$TARGET_DIR")" != "JARVIS" && -d "$PARENT/JARVIS" ]]; then
+    mv "$PARENT/JARVIS" "$TARGET_DIR"
+  fi
+  cd "$TARGET_DIR" || exit 1
 elif [[ -n "$REPO" ]]; then
   echo "▸ Cloning $REPO → $TARGET_DIR"
   git clone --depth 1 "$REPO" "$TARGET_DIR" || exit 1

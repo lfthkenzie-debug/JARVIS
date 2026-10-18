@@ -25,9 +25,10 @@ HOME = Path.home()
 ROOT = Path(__file__).resolve().parent.parent          # project root
 DATA_DIR = ROOT / "jarvis_data"                        # models, memory, cache
 CHART_DIR = DATA_DIR / "charts"
+IMAGES_DIR = DATA_DIR / "images"
 LOG_DIR = DATA_DIR / "logs"
 SPIDER_DIR = DATA_DIR / "spiders"
-for _d in (DATA_DIR, CHART_DIR, LOG_DIR, SPIDER_DIR):
+for _d in (DATA_DIR, CHART_DIR, IMAGES_DIR, LOG_DIR, SPIDER_DIR):
     _d.mkdir(parents=True, exist_ok=True)
 
 
@@ -47,6 +48,16 @@ def _secret(name: str, filename: str) -> str:
 FISH_API_KEY = _secret("JARVIS_FISH_API_KEY", "fish_api_key.txt")
 FISH_VOICE_ID = os.getenv("JARVIS_FISH_VOICE", "eb9af03b1b6d4a7787c2827b051bb770")
 FISH_MODEL = os.getenv("JARVIS_FISH_MODEL", "s2.1-pro-free")  # free dev tier; drama-3/s2-pro need API credit
+
+# ---------------------------------------------------------------- image generation
+# Provider is auto-detected by whichever key is present (see core/imagegen.py).
+# Add a key via env, or a small file in jarvis_data/ (same convention as the rest).
+OPENAI_API_KEY = _secret("JARVIS_OPENAI_KEY", "openai_api_key.txt")
+OPENAI_IMAGE_MODEL = os.getenv("JARVIS_OPENAI_IMAGE_MODEL", "gpt-image-1")
+STABILITY_API_KEY = _secret("JARVIS_STABILITY_KEY", "stability_api_key.txt")
+REPLICATE_API_TOKEN = _secret("JARVIS_REPLICATE_TOKEN", "replicate_token.txt")
+IMAGE_BACKEND = os.getenv("JARVIS_IMAGE_BACKEND", "")        # force: openai|stability|replicate|local|test
+IMAGE_LOCAL_MODEL = os.getenv("JARVIS_IMAGE_LOCAL_MODEL", "sd-legacy/stable-diffusion-v1-5")
 
 MEMORY_DB = DATA_DIR / "memory.sqlite3"
 INTENT_MODEL = DATA_DIR / "intent_model.joblib"
