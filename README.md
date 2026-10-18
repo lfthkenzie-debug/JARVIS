@@ -1,8 +1,9 @@
 # J.A.R.V.I.S — your computer's holographic assistant
 
 A local-first voice & control assistant for **macOS, Windows and Linux** with a
-sci-fi blue web interface. 39 skills: system control, files, memory, weather,
-data analysis, ML, and a free-talking chat brain. **Nothing ever leaves your
+sci-fi blue web interface. 65 skills: system control, files, memory, weather,
+timers, image generation, YouTube & web watch-together, screen vision, data
+analysis, ML, and a free-talking chat brain. **Nothing ever leaves your
 machine** — no cloud, no telemetry. Every file JARVIS touches is *your* file,
 on *your* computer.
 
@@ -62,7 +63,7 @@ for your Python version are skipped — JARVIS degrades gracefully.
 | `./run.sh --ui` | `run.bat --ui` | Holographic control panel (http://127.0.0.1:8777) |
 | `./run.sh` | `run.bat` | Full voice mode — say *"jarvis"* |
 | `./run.sh --text` | `run.bat --text` | Typed conversation, spoken replies |
-| `./run.sh --selftest` | `run.bat --selftest` | Verify all skill routing (39 skills) |
+| `./run.sh --selftest` | `run.bat --selftest` | Verify all skill routing (65 skills) |
 | `./run.sh --oneshot "open safari"` | `run.bat --oneshot "open notepad"` | One command, then exit |
 
 Grant **microphone** permission when your OS asks — the app only appears in
